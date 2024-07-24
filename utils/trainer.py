@@ -199,7 +199,6 @@ class ModelTrainer:
                     torch.nn.utils.clip_grad_value_(net.parameters(), config.grad_clip_norm)
                 self.optimizer.step()
 
-                
                 torch.cuda.empty_cache()
                 torch.cuda.synchronize(self.device)
 
@@ -429,8 +428,8 @@ class ModelTrainer:
         softmax = torch.nn.Softmax(1)
 
         # Do not validate if dataset has no validation cloud
-        if val_loader.dataset.validation_split not in val_loader.dataset.all_splits:
-            return
+        # if val_loader.dataset.validation_split not in val_loader.dataset.all_splits:
+        #     return
 
         # Number of classes including ignored labels
         nc_tot = val_loader.dataset.num_classes

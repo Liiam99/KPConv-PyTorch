@@ -30,6 +30,7 @@ import torch
 
 # Dataset
 from datasets.ModelNet40 import *
+from datasets.RailCloudHdF import *
 from datasets.S3DIS import *
 from datasets.SensatUrban import *
 from datasets.SemanticKitti import *
@@ -97,7 +98,7 @@ if __name__ == '__main__':
     #       > 'last_XXX': Automatically retrieve the last trained model on dataset XXX
     #       > '(old_)results/Log_YYYY-MM-DD_HH-MM-SS': Directly provide the path of a trained model
 
-    chosen_log = 'results/Log_2024-05-14_21-04-36'
+    chosen_log = 'results/Log_2024-07-24_07-45-40'
 
     # Choose the index of the checkpoint to load OR None if you want to load the current checkpoint
     chkp_idx = -1
@@ -184,6 +185,10 @@ if __name__ == '__main__':
         test_dataset = SemanticKittiDataset(config, set=set, balance_classes=False)
         test_sampler = SemanticKittiSampler(test_dataset)
         collate_fn = SemanticKittiCollate
+    elif config.dataset == "RailCloudHdF":
+        test_dataset = RailCloudHdFDataset(config, set=set, use_potentials=True)
+        test_sampler = RailCloudHdFSampler(test_dataset)
+        collate_fn = RailCloudHdFCollate
     else:
         raise ValueError('Unsupported dataset : ' + config.dataset)
 
