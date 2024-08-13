@@ -7,12 +7,12 @@
 #
 # ----------------------------------------------------------------------------------------------------------------------
 #
-#      Class handling RailCloudHdF dataset.
+#      Class handling InternRail dataset.
 #      Implements a Dataset, a Sampler, and a collate_fn
 #
 # ----------------------------------------------------------------------------------------------------------------------
 #
-#      Liam Adam - 22/07/2024
+#      Liam Adam - 05/08/2024
 #
 
 
@@ -51,14 +51,14 @@ from utils.config import bcolors
 #       \******************************/
 
 
-class RailCloudHdFDataset(PointCloudDataset):
-    """Class to handle RailCloud-HdF dataset."""
+class InternRailDataset(PointCloudDataset):
+    """Class to handle InternRail dataset."""
 
     def __init__(self, config, set='train', use_potentials=True, load_data=True):
         """
         This dataset is small enough to be stored in-memory, so load all point clouds here
         """
-        PointCloudDataset.__init__(self, 'RailCloud-HdF')
+        PointCloudDataset.__init__(self, 'InternRail')
 
         ############
         # Parameters
@@ -66,23 +66,20 @@ class RailCloudHdFDataset(PointCloudDataset):
 
         # Dict from labels to names
         self.label_to_names = {0: 'unclassified',
-                               1: 'rail',
-                               2: 'wiring',
-                               3: 'pole',
-                               4: 'installation',
-                               5: 'crossing',
-                               6: 'switch box',
-                               7: 'signalling',
+                               1: 'installation',
+                               2: 'crossing',
+                               3: 'switch box',
+                               4: 'signalling',
                                }
 
         # Initialize a bunch of variables concerning class labels
         self.init_labels()
 
         # List of classes ignored during training (can be empty)
-        self.ignored_labels = np.array([])
+        self.ignored_labels = np.array([0])
 
-        # Dataset folder
-        self.path = './data/RailCloudHdF/classified_tiles'
+        # Dataset folders
+        self.path = './data/InternRail'
 
         # Type of task conducted on this dataset
         self.dataset_task = 'cloud_segmentation'
@@ -110,7 +107,7 @@ class RailCloudHdFDataset(PointCloudDataset):
         elif self.set in ['val', 'test']:
             self.epoch_n = config.validation_size * config.batch_num
         else:
-            raise ValueError('Unknown set for RailCloudHdF data: ', self.set)
+            raise ValueError('Unknown set for InternRail data: ', self.set)
 
         # Stop data is not needed
         if not load_data:
@@ -120,7 +117,7 @@ class RailCloudHdFDataset(PointCloudDataset):
         # Prepare ply files
         ###################
 
-        self.prepare_RailCloudHdF_ply()
+        self.prepare_InternRail_ply()
         pass
         ################
         # Load ply files
@@ -132,7 +129,7 @@ class RailCloudHdFDataset(PointCloudDataset):
             if self.set in ['train', 'val', 'test']:
                 self.files += [join(self.path, "ply", self.set, f + '.ply')]
             else:
-                raise ValueError('Unknown set for RailCloud-HdF data: ', self.set)
+                raise ValueError('Unknown set for InternRail data: ', self.set)
         print('The set is ' + str(self.set))
 
         if self.set in ['train', 'val', 'test']:
@@ -144,7 +141,6 @@ class RailCloudHdFDataset(PointCloudDataset):
 
         # Initiate containers
         self.input_trees = []
-        self.input_colors = []
         self.input_labels = []
         self.pot_trees = []
         self.num_clouds = 0
@@ -334,9 +330,8 @@ class RailCloudHdFDataset(PointCloudDataset):
                 t += [time.time()]
                 continue
 
-            # Collect labels and colors
+            # Collect labels
             input_points = (points[input_inds] - center_point).astype(np.float32)
-            input_colors = self.input_colors[cloud_ind][input_inds]
             if self.set in ['test', 'ERF']:
                 input_labels = np.zeros(input_points.shape[0])
             else:
@@ -348,13 +343,7 @@ class RailCloudHdFDataset(PointCloudDataset):
             # Data augmentation
             input_points, scale, R = self.augmentation_transform(input_points)
 
-            # Color augmentation
-            if np.random.rand() > self.config.augment_color:
-                input_colors *= 0
-
-            # Get original height as additional feature
-            input_features = np.hstack((input_colors, input_points[:, 2:] + center_point[:, 2:])).astype(np.float32)
-            # input_features = np.hstack((input_points[:, 2:] + center_point[:, 2:])).astype(np.float32)
+            input_features = np.hstack((input_points[:, 2:] + center_point[:, 2:])).astype(np.float32)
 
             t += [time.time()]
 
@@ -399,13 +388,10 @@ class RailCloudHdFDataset(PointCloudDataset):
         if self.config.in_features_dim == 1:
             pass
         elif self.config.in_features_dim == 2:
-            stacked_features = np.hstack((stacked_features, features[:, 3:4]))
-        elif self.config.in_features_dim == 4:
-            stacked_features = np.hstack((stacked_features, features[:, :3]))
-        elif self.config.in_features_dim == 5:
-            stacked_features = np.hstack((stacked_features, features))
+            stacked_features = np.hstack((stacked_features, features[:, 0:1]))
         else:
-            raise ValueError('Only accepted input dimensions are 1, 4 and 5 (not counting XYZ)')
+            raise ValueError('Only accepted input dimensions are 1 and 2 (not counting XYZ)')
+
 
         #######################
         # Create network inputs
@@ -544,7 +530,6 @@ class RailCloudHdFDataset(PointCloudDataset):
 
             # Collect labels and colors
             input_points = (points[input_inds] - center_point).astype(np.float32)
-            input_colors = self.input_colors[cloud_ind][input_inds]
             if self.set in ['test', 'ERF']:
                 input_labels = np.zeros(input_points.shape[0])
             else:
@@ -554,12 +539,8 @@ class RailCloudHdFDataset(PointCloudDataset):
             # Data augmentation
             input_points, scale, R = self.augmentation_transform(input_points)
 
-            # Color augmentation
-            if np.random.rand() > self.config.augment_color:
-                input_colors *= 0
-
             # Get original height as additional feature
-            input_features = np.hstack((input_colors, input_points[:, 2:] + center_point[:, 2:])).astype(np.float32)
+            input_features = np.hstack((input_points[:, 2:] + center_point[:, 2:])).astype(np.float32)
 
             # Stack batch
             p_list += [input_points]
@@ -602,14 +583,9 @@ class RailCloudHdFDataset(PointCloudDataset):
         if self.config.in_features_dim == 1:
             pass
         elif self.config.in_features_dim == 2:
-            stacked_features = np.hstack((stacked_features, features[:, 3:4]))
-        elif self.config.in_features_dim == 4:
-            stacked_features = np.hstack((stacked_features, features[:, :3]))
-        elif self.config.in_features_dim == 5:
-            stacked_features = np.hstack((stacked_features, features))
+            stacked_features = np.hstack((stacked_features, features[:, 0:1]))
         else:
-            raise ValueError('Only accepted input dimensions are 1, 4 and 5 (not counting XYZ)')
-
+            raise ValueError('Only accepted input dimensions are 1 and 2 (not counting XYZ)')
         #######################
         # Create network inputs
         #######################
@@ -628,9 +604,12 @@ class RailCloudHdFDataset(PointCloudDataset):
 
         return input_list
 
-    def prepare_RailCloudHdF_ply(self):
+    def prepare_InternRail_ply(self):
         print('\nPreparing ply files')
         t0 = time.time()
+
+        # For converting point clouds with coords in imperial units.
+        FEET_TO_METERS = 1200/3937
 
         # Folder for the ply files
         ply_path = join(self.path, "ply", self.set)
@@ -661,16 +640,16 @@ class RailCloudHdFDataset(PointCloudDataset):
             # Stack
             cloud_points = np.hstack((cloud_x, cloud_y, cloud_z))
 
-            intensity = np.array(las.intensity, dtype=np.uint16)
-            color = np.vstack((las.red, las.green, las.blue)).T.astype(np.uint16)
-            rgbi = np.hstack((color, intensity.reshape(-1, 1)))
+            # The US point clouds need to be converted from imperial to metric.
+            if cloud_name.startswith("CSX"):
+                cloud_points = cloud_points*FEET_TO_METERS
 
             labels = np.array(las.classification, dtype=np.uint8)
             labels = labels.reshape(len(labels), 1)
 
             # Save as ply
-            field_names = ['x', 'y', 'z', 'red', 'green', 'blue', 'intensity', 'class']
-            write_ply(join(ply_path, cloud_name + '.ply'), (cloud_points, rgbi, labels), field_names)
+            field_names = ['x', 'y', 'z', 'class']
+            write_ply(join(ply_path, cloud_name + '.ply'), [cloud_points, labels], field_names)
 
         print('Done in {:.1f}s'.format(time.time() - t0))
         return
@@ -707,7 +686,6 @@ class RailCloudHdFDataset(PointCloudDataset):
 
                 # read ply with data
                 data = read_ply(sub_ply_file)
-                sub_colors = np.vstack((data['red'], data['green'], data['blue'], data['intensity'])).T
                 sub_labels = data['class']
 
                 # Read pkl with search tree
@@ -720,8 +698,6 @@ class RailCloudHdFDataset(PointCloudDataset):
                 # Read ply file
                 data = read_ply(file_path)
                 points = np.vstack((data['x'], data['y'], data['z'])).T
-                colors = np.vstack((data['red'], data['green'], data['blue'], data['intensity'])).T
-                colors = np.asarray(colors, dtype=np.float32)
 
                 # Fake labels for test data
                 if self.set == 'test':
@@ -730,13 +706,10 @@ class RailCloudHdFDataset(PointCloudDataset):
                     labels = data['class']
 
                 # Subsample cloud
-                sub_points, sub_colors, sub_labels = grid_subsampling(points,
-                                                          features=colors,
+                sub_points, sub_labels = grid_subsampling(points,
                                                           labels=labels,
                                                           sampleDl=dl)
 
-                # Rescale float color and squeeze label
-                sub_colors = sub_colors / 65535.0
                 sub_labels = np.squeeze(sub_labels)
 
                 # Get chosen neighborhoods
@@ -750,12 +723,11 @@ class RailCloudHdFDataset(PointCloudDataset):
 
                 # Save ply
                 write_ply(sub_ply_file,
-                          [sub_points, sub_colors, sub_labels],
-                          ['x', 'y', 'z', 'red','green', 'blue', 'intensity', 'class'])
+                          [sub_points, sub_labels],
+                          ['x', 'y', 'z', 'class'])
 
             # Fill data containers
             self.input_trees += [search_tree]
-            self.input_colors += [sub_colors]
             self.input_labels += [sub_labels]
 
             size = sub_labels.shape[0] * 4 * 7
@@ -877,10 +849,10 @@ class RailCloudHdFDataset(PointCloudDataset):
 #       \********************************/
 
 
-class RailCloudHdFSampler(Sampler):
-    """Sampler for RailCloudHdF"""
+class InternRailSampler(Sampler):
+    """Sampler for InternRail"""
 
-    def __init__(self, dataset: RailCloudHdFDataset):
+    def __init__(self, dataset: InternRailDataset):
         Sampler.__init__(self, dataset)
 
         # Dataset used by the sampler (no copy is made in memory)
@@ -1174,7 +1146,7 @@ class RailCloudHdFSampler(Sampler):
             target_b = self.dataset.config.batch_num
 
             # Expected batch size order of magnitude
-            expected_N = 5e3
+            expected_N = 8e3
 
             # Calibration parameters. Higher means faster but can also become unstable
             # Reduce Kp and Kd if your GP Uis small as the total number of points per batch will be smaller
@@ -1358,8 +1330,8 @@ class RailCloudHdFSampler(Sampler):
         return
 
 
-class RailCloudHdFCustomBatch:
-    """Custom batch definition with memory pinning for RailCloudHdF"""
+class InternRailCustomBatch:
+    """Custom batch definition with memory pinning for InternRail"""
 
     def __init__(self, input_list):
 
@@ -1497,8 +1469,8 @@ class RailCloudHdFCustomBatch:
         return all_p_list
 
 
-def RailCloudHdFCollate(batch_data):
-    return RailCloudHdFCustomBatch(batch_data)
+def InternRailCollate(batch_data):
+    return InternRailCustomBatch(batch_data)
 
 
 # ----------------------------------------------------------------------------------------------------------------------

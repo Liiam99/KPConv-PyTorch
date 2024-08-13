@@ -7,7 +7,7 @@
 #
 # ----------------------------------------------------------------------------------------------------------------------
 #
-#      Callable script to start a training on RailCloud-HdF dataset
+#      Callable script to start a training on InternRail dataset
 #
 # ----------------------------------------------------------------------------------------------------------------------
 #
@@ -26,7 +26,7 @@ import signal
 import os
 
 # Dataset
-from datasets.RailCloudHdF import *
+from datasets.InternRail import *
 from torch.utils.data import DataLoader
 
 from utils.config import Config
@@ -40,7 +40,7 @@ from models.architectures import KPFCNN
 #       \******************/
 #
 
-class RailCloudHdFConfig(Config):
+class InternRailConfig(Config):
     """
     Override the parameters you want to modify for this dataset
     """
@@ -50,7 +50,7 @@ class RailCloudHdFConfig(Config):
     ####################
 
     # Dataset name
-    dataset = 'RailCloudHdF'
+    dataset = 'InternRail'
 
     # Number of classes in the dataset (This value is overwritten by dataset class when Initializating dataset).
     num_classes = None
@@ -119,7 +119,7 @@ class RailCloudHdFConfig(Config):
 
     # Choice of input features
     first_features_dim = 128
-    in_features_dim = 2
+    in_features_dim = 1
 
     # Can the network learn modulations
     modulated = False
@@ -205,7 +205,7 @@ if __name__ == '__main__':
 
     # Choose here if you want to start training from a previous snapshot (None for new training)
     # previous_training_path = 'Log_2020-03-19_19-53-27'
-    previous_training_path = 'HdF_intensity/Log_2024-08-08_18-39-27'
+    previous_training_path = None
 
     # Choose index of checkpoint to start from. If None, uses the latest chkp
     chkp_idx = None
@@ -234,7 +234,7 @@ if __name__ == '__main__':
     print('****************')
 
     # Initialize configuration class
-    config = RailCloudHdFConfig()
+    config = InternRailConfig()
     if previous_training_path:
         config.load(os.path.join('results', previous_training_path))
         config.saving_path = None
@@ -244,24 +244,24 @@ if __name__ == '__main__':
         config.saving_path = sys.argv[1]
 
     # Initialize datasets
-    training_dataset = RailCloudHdFDataset(config, set='train', use_potentials=True)
-    val_dataset = RailCloudHdFDataset(config, set='val', use_potentials=True)
+    training_dataset = InternRailDataset(config, set='train', use_potentials=True)
+    val_dataset = InternRailDataset(config, set='val', use_potentials=True)
 
     # Initialize samplers
-    training_sampler = RailCloudHdFSampler(training_dataset)
-    val_sampler = RailCloudHdFSampler(val_dataset)
+    training_sampler = InternRailSampler(training_dataset)
+    val_sampler = InternRailSampler(val_dataset)
 
     # Initialize the dataloader
     training_loader = DataLoader(training_dataset,
                                  batch_size=1,
                                  sampler=training_sampler,
-                                 collate_fn=RailCloudHdFCollate,
+                                 collate_fn=InternRailCollate,
                                  num_workers=config.input_threads,
                                  pin_memory=True)
     val_loader = DataLoader(val_dataset,
                             batch_size=1,
                             sampler=val_sampler,
-                            collate_fn=RailCloudHdFCollate,
+                            collate_fn=InternRailCollate,
                             num_workers=config.input_threads,
                             pin_memory=True)
 
