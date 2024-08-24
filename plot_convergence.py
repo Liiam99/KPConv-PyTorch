@@ -37,9 +37,10 @@ from utils.metrics import IoU_from_confusions, smooth_metrics, fast_confusion
 from utils.ply import read_ply
 
 # Datasets
+from datasets.InternRail import InternRailDataset
 from datasets.ModelNet40 import ModelNet40Dataset
 from datasets.S3DIS import S3DISDataset
-from datasets.SensatUrban import SensatUrbanDataset 
+from datasets.SensatUrban import SensatUrbanDataset
 from datasets.SemanticKitti import SemanticKittiDataset
 
 # ----------------------------------------------------------------------------------------------------------------------
@@ -714,11 +715,11 @@ def experiment_name_1():
     """
 
     # Using the dates of the logs, you can easily gather consecutive ones. All logs should be of the same dataset.
-    start = 'Log_2020-04-22_11-52-58'
-    end = 'Log_2023-07-29_12-40-27'
+    start = 'HdF'
+    end = 'InternRail'
 
     # Name of the result path
-    res_path = 'results'
+    res_path = 'results/'
 
     # Gather logs and sort by date
     logs = np.sort([join(res_path, l) for l in listdir_str(res_path) if start <= l <= end])
@@ -818,6 +819,9 @@ if __name__ == '__main__':
             compare_convergences_segment(dataset, logs, logs_names)
         if config.dataset.startswith('SensatUrban'):
             dataset = SensatUrbanDataset(config, load_data=False)
+            compare_convergences_segment(dataset, logs, logs_names)
+        if config.dataset.startswith('InternRail'):
+            dataset = InternRailDataset(config, load_data=False)
             compare_convergences_segment(dataset, logs, logs_names)
     elif config.dataset_task == 'slam_segmentation':
         if config.dataset.startswith('SemanticKitti'):

@@ -180,7 +180,7 @@ class ModelTester:
 
         ############
         # Initialize
-        ############
+        ############InternRail'
 
         # Choose test smoothing parameter (0 for no smothing, 0.99 for big smoothing)
         test_smooth = 0.95

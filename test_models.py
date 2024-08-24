@@ -29,8 +29,8 @@ import sys
 import torch
 
 # Dataset
+from datasets.InternRail import *
 from datasets.ModelNet40 import *
-from datasets.RailCloudHdF import *
 from datasets.S3DIS import *
 from datasets.SensatUrban import *
 from datasets.SemanticKitti import *
@@ -98,13 +98,12 @@ if __name__ == '__main__':
     #       > 'last_XXX': Automatically retrieve the last trained model on dataset XXX
     #       > '(old_)results/Log_YYYY-MM-DD_HH-MM-SS': Directly provide the path of a trained model
 
-    chosen_log = 'results/Log_2024-07-24_07-45-40'
+    chosen_log = 'results/FranceNL'
 
     # Choose the index of the checkpoint to load OR None if you want to load the current checkpoint
-    chkp_idx = -1
-
+    chkp_idx = 7
     # Choose to test on validation or test split
-    on_val = True
+    on_val = False
 
     # Deal with 'last_XXXXXX' choices
     chosen_log = model_choice(chosen_log)
@@ -149,7 +148,7 @@ if __name__ == '__main__':
     #config.batch_num = 3
     #config.in_radius = 4
     config.validation_size = 200
-    config.input_threads = 10
+    config.input_threads = 16
 
     ##############
     # Prepare Data
@@ -185,10 +184,10 @@ if __name__ == '__main__':
         test_dataset = SemanticKittiDataset(config, set=set, balance_classes=False)
         test_sampler = SemanticKittiSampler(test_dataset)
         collate_fn = SemanticKittiCollate
-    elif config.dataset == "RailCloudHdF":
-        test_dataset = RailCloudHdFDataset(config, set=set, use_potentials=True)
-        test_sampler = RailCloudHdFSampler(test_dataset)
-        collate_fn = RailCloudHdFCollate
+    elif config.dataset == "InternRail":
+        test_dataset = InternRailDataset(config, set=set, use_potentials=True)
+        test_sampler = InternRailSampler(test_dataset)
+        collate_fn = InternRailCollate
     else:
         raise ValueError('Unsupported dataset : ' + config.dataset)
 
@@ -226,7 +225,7 @@ if __name__ == '__main__':
     if config.dataset_task == 'classification':
         tester.classification_test(net, test_loader, config)
     elif config.dataset_task == 'cloud_segmentation':
-        tester.cloud_segmentation_test(net, test_loader, config)
+        tester.cloud_segmentation_test(net, test_loader, config, num_votes=10)
     elif config.dataset_task == 'slam_segmentation':
         tester.slam_segmentation_test(net, test_loader, config)
     else:

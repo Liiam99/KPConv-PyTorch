@@ -28,6 +28,7 @@ import laspy
 import numpy as np
 import pickle
 import torch
+torch.manual_seed(123)
 import math
 import warnings
 from multiprocessing import Lock
@@ -76,7 +77,7 @@ class InternRailDataset(PointCloudDataset):
         self.init_labels()
 
         # List of classes ignored during training (can be empty)
-        self.ignored_labels = np.array([0])
+        self.ignored_labels = np.array([])
 
         # Dataset folders
         self.path = './data/InternRail'
@@ -99,9 +100,46 @@ class InternRailDataset(PointCloudDataset):
 
         # Proportion of validation scenes
         cloud_dir = self.path + f"/{self.set}"
-        self.cloud_names = [splitext(file_name)[0] for file_name in listdir(cloud_dir)]
 
-        # Number of models used per epoch
+        # # Experiment 1
+        # # Train on France, validate on France, test on France
+        # self.cloud_names = [splitext(cloud_name)[0] for cloud_name in listdir(cloud_dir) if cloud_name.startswith("HdF")]
+
+        # # Experiment 2
+        # # Train on France, validate on France, test on US
+        # if self.set == "test":
+        #     self.cloud_names = [splitext(cloud_name)[0] for cloud_name in listdir(cloud_dir) if cloud_name.startswith("CSX")]
+
+        # Experiment 3
+        # Train on France and NL, validate on France and NL, test on US
+        cloud_names = [splitext(cloud_name)[0] for cloud_name in listdir(cloud_dir)]
+        if self.set == "train":
+            self.cloud_names = [
+                cloud_name for cloud_name in cloud_names if cloud_name not in [
+                    "HdF_train_tile_5",
+                    "HdF_train_tile_7",
+                    "HdF_train_tile_10",
+                    "HdF_train_tile_11",
+                    "HdF_train_tile_15",
+                    "HdF_train_tile_18",
+                    "HdF_train_tile_20",
+                    "HdF_train_tile_27",
+                    "HdF_train_tile_28",
+                    "HdF_train_tile_29",
+                ]
+            ]
+        elif self.set == "val":
+            self.cloud_names = [
+                cloud_name for cloud_name in cloud_names if cloud_name not in [
+                    "HdF_val_tile_2",
+                    "HdF_val_tile_5",
+                    "HdF_val_tile_6",
+                ]
+            ]
+        elif self.set == "test":
+            self.cloud_names = [cloud_name for cloud_name in cloud_names if cloud_name.startswith("CSX")]
+
+        # Number of models used per epochs
         if self.set == 'train':
             self.epoch_n = config.epoch_steps * config.batch_num
         elif self.set in ['val', 'test']:
@@ -699,11 +737,7 @@ class InternRailDataset(PointCloudDataset):
                 data = read_ply(file_path)
                 points = np.vstack((data['x'], data['y'], data['z'])).T
 
-                # Fake labels for test data
-                if self.set == 'test':
-                    labels = np.zeros((data.shape[0],), dtype=np.int32)
-                else:
-                    labels = data['class']
+                labels = data['class']
 
                 # Subsample cloud
                 sub_points, sub_labels = grid_subsampling(points,
@@ -810,12 +844,7 @@ class InternRailDataset(PointCloudDataset):
                 else:
                     data = read_ply(file_path)
                     points = np.vstack((data['x'], data['y'], data['z'])).T
-
-                    # Fake labels
-                    if self.set == 'test':
-                        labels = np.zeros((data.shape[0],), dtype=np.int32)
-                    else:
-                        labels = data['class']
+                    labels = data['class']
 
                     # Compute projection inds
                     idxs = self.input_trees[i].query(points, return_distance=False)
@@ -894,8 +923,7 @@ class InternRailSampler(Sampler):
                     all_label_indices = []
                     for cloud_ind, cloud_labels in enumerate(self.dataset.input_labels):
                         label_indices = np.where(np.equal(cloud_labels, label))[0]
-                        all_label_indices.append(
-                            np.vstack((np.full(label_indices.shape, cloud_ind, dtype=np.int64), label_indices)))
+                        all_label_indices.append(np.vstack((np.full(label_indices.shape, cloud_ind, dtype=np.int64), label_indices)))
 
                     # Stack them: [2, N1+N2+...]
                     all_label_indices = np.hstack(all_label_indices)
@@ -905,13 +933,11 @@ class InternRailSampler(Sampler):
                     if N_inds < random_pick_n:
                         chosen_label_inds = np.zeros((2, 0), dtype=np.int64)
                         while chosen_label_inds.shape[1] < random_pick_n:
-                            chosen_label_inds = np.hstack(
-                                (chosen_label_inds, all_label_indices[:, np.random.permutation(N_inds)]))
+                            chosen_label_inds = np.hstack((chosen_label_inds, all_label_indices[:, np.random.permutation(N_inds)]))
                         warnings.warn('When choosing random epoch indices (use_potentials=False), \
                                        class {:d}: {:s} only had {:d} available points, while we \
                                        needed {:d}. Repeating indices in the same epoch'.format(label,
-                                                                                                self.dataset.label_names[
-                                                                                                    label_ind],
+                                                                                                self.dataset.label_names[label_ind],
                                                                                                 N_inds,
                                                                                                 random_pick_n))
 
@@ -922,7 +948,7 @@ class InternRailSampler(Sampler):
                     else:
                         chosen_label_inds = np.zeros((2, 0), dtype=np.int64)
                         while chosen_label_inds.shape[1] < random_pick_n:
-                            rand_inds = np.unique(np.random.choice(N_inds, size=2 * random_pick_n, replace=True))
+                            rand_inds = np.unique(np.random.choice(N_inds, size=2*random_pick_n, replace=True))
                             chosen_label_inds = np.hstack((chosen_label_inds, all_label_indices[:, rand_inds]))
                         chosen_label_inds = chosen_label_inds[:, :random_pick_n]
 
@@ -1146,7 +1172,9 @@ class InternRailSampler(Sampler):
             target_b = self.dataset.config.batch_num
 
             # Expected batch size order of magnitude
-            expected_N = 8e3
+            # 10000 for training
+            # 2000 for testing US
+            expected_N = 2000
 
             # Calibration parameters. Higher means faster but can also become unstable
             # Reduce Kp and Kd if your GP Uis small as the total number of points per batch will be smaller

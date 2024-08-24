@@ -97,16 +97,16 @@ class InternRailConfig(Config):
     num_kernel_points = 15
 
     # Radius of the input sphere (decrease value to reduce memory cost)
-    in_radius = 1.5
+    in_radius = 2.5
 
     # Size of the first subsampling grid in meter (increase value to reduce memory cost)
-    first_subsampling_dl = 0.03
+    first_subsampling_dl = 0.06
 
     # Radius of convolution in "number grid cell". (2.5 is the standard value)
-    conv_radius = 2.5
+    conv_radius = 2.0
 
     # Radius of deformable convolution in "number grid cell". Larger so that deformed kernel can spread out
-    deform_radius = 6.0
+    deform_radius = 4.0
 
     # Radius of the area of influence of each kernel point in "number grid cell". (1.0 is the standard value)
     KP_extent = 1.2
@@ -141,7 +141,7 @@ class InternRailConfig(Config):
     #####################
 
     # Maximal number of epochs
-    max_epoch = 500
+    max_epoch = 400
 
     # Learning rate management
     learning_rate = 1e-2
@@ -150,7 +150,7 @@ class InternRailConfig(Config):
     grad_clip_norm = 100.0
 
     # Number of batch (decrease to reduce memory cost, but it should remain > 3 for stability)
-    batch_num = 10
+    batch_num = 5
 
     # Number of steps per epochs
     epoch_steps = 500
@@ -244,8 +244,8 @@ if __name__ == '__main__':
         config.saving_path = sys.argv[1]
 
     # Initialize datasets
-    training_dataset = InternRailDataset(config, set='train', use_potentials=True)
-    val_dataset = InternRailDataset(config, set='val', use_potentials=True)
+    training_dataset = InternRailDataset(config, set='train', use_potentials=False)
+    val_dataset = InternRailDataset(config, set='val', use_potentials=False)
 
     # Initialize samplers
     training_sampler = InternRailSampler(training_dataset)
